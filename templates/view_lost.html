@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="items-page-container">
+
+    <!-- Page Header -->
+    <div class="items-page-header">
+        <div class="items-page-title-row">
+            <span class="items-page-badge lost-badge">🔴 Lost</span>
+            <h2 class="lost-items-title">Lost Items</h2>
+        </div>
+        <p class="items-page-subtitle">Browse all reported lost items. Contact the owner if you found it.</p>
+    </div>
+
+    <!-- Filters & Search Form -->
+    <form class="advanced-filter-form" method="GET" action="{{ url_for('view_lost') }}">
+        <div class="filter-top-row search-toggle-row">
+            <div class="search-bar-container search-bar-flex">
+                <input type="text" name="search" class="search-bar"
+                       placeholder="Search by name or description..."
+                       value="{{ request.args.get('search', '') }}"
+                       onchange="this.form.submit()">
+            </div>
+            <a href="{{ url_for('map_view') }}" class="view-toggle-btn">
+                🗺️ View on Map
+            </a>
+        </div>
+        
+        <div class="filter-bottom-row">
+            <select name="category" class="filter-dropdown" onchange="this.form.submit()">
+                <option value="">All Categories</option>
+                <option value="Electronics" {% if request.args.get('category') == 'Electronics' %}selected{% endif %}>Electronics</option>
+                <option value="Documents" {% if request.args.get('category') == 'Documents' %}selected{% endif %}>Documents</option>
+                <option value="Accessories" {% if request.args.get('category') == 'Accessories' %}selected{% endif %}>Accessories</option>
+                <option value="Other" {% if request.args.get('category') == 'Other' %}selected{% endif %}>Others</option>
+            </select>
+            
+            <select name="type" class="filter-dropdown" onchange="this.form.submit()">
+                <option value="lost" {% if not request.args.get('type') or request.args.get('type') == 'lost' %}selected{% endif %}>Lost Items</option>
+                <option value="found" {% if request.args.get('type') == 'found' %}selected{% endif %}>Found Items</option>
+                <option value="all" {% if request.args.get('type') == 'all' %}selected{% endif %}>All Items</option>
+            </select>
+
+            <input type="text" name="location" class="filter-dropdown location-filter-input"
+                   placeholder="City or area..."
+                   value="{{ request.args.get('location', '') }}"
+                   onchange="this.form.submit()">
+
+            <select name="date" class="filter-dropdown" onchange="this.form.submit()">
+                <option value="all" {% if not request.args.get('date') or request.args.get('date') == 'all' %}selected{% endif %}>All Time</option>
+                <option value="today" {% if request.args.get('date') == 'today' %}selected{% endif %}>Today</option>
+                <option value="week" {% if request.args.get('date') == 'week' %}selected{% endif %}>Last 7 Days</option>
+            </select>
+            
+            <select name="sort" class="filter-dropdown sort-dropdown" onchange="this.form.submit()">
+                <option value="latest" {% if not request.args.get('sort') or request.args.get('sort') == 'latest' %}selected{% endif %}>Latest First</option>
+                <option value="oldest" {% if request.args.get('sort') == 'oldest' %}selected{% endif %}>Oldest First</option>
+                <option value="alphabetical" {% if request.args.get('sort') == 'alphabetical' %}selected{% endif %}>A-Z</option>
+            </select>
+        </div>
+    </form>
+
+    <!-- Items Grid -->
+    {% if lost_items %}
+        <div class="items-grid" id="itemList">
+            {% for item in lost_items %}
+            <div class="item-card">
+
+                <!-- Image -->
+                {% if item.image %}
+                    <div class="item-card-img-wrap">
+                        <img src="{{ item.image }}" alt="{{ item.name }}" class="item-card-img">
+                    </div>
+                {% else %}
+                    <div class="item-card-img-placeholder">
+                        <span>📦</span>
+                    </div>
+                {% endif %}
+
+                <!-- Body -->
+                <div class="item-card-body">
+                    <div class="item-card-top">
+                        <span class="item-category-badge">{{ item.category }}</span>
+                        {% if item.lat and item.lng %}
+                            <span class="item-geo-badge">📍 Located</span>
+                        {% endif %}
+                    </div>
+                    <h3 class="item-card-name">{{ item.name | title }}</h3>
+                    <p class="item-card-desc">{{ item.description }}</p>
+                </div>
+
+                <!-- Footer -->
+                <div class="item-card-footer">
+                    <div class="item-card-meta">
+                        <span class="item-meta-row">📍 {{ item.location }}</span>
+                        <span class="item-meta-row">📞 {{ item.contact }}</span>
+                    </div>
+                    {% if item.lat and item.lng %}
+                    <a href="{{ url_for('map_view') }}" class="item-map-link">🗺️ View on map</a>
+                    {% endif %}
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+
+    {% else %}
+        <div class="items-empty">
+            <div class="items-empty-icon">🔍</div>
+            <h3>No items match your filters</h3>
+            <p>Try clearing your search or adjusting the filters to see more results.</p>
+        </div>
+    {% endif %}
+
+</div>
+
+<script>
+    // Filtering is handled dynamically by browser on inputs.
+</script>
+{% endblock %}

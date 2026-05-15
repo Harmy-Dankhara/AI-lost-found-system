@@ -1,0 +1,49 @@
+{
+    "lost_items": [
+        {
+            "name": "black iphone",
+            "category": "Electronics",
+            "description": "it was a black iphone 16",
+            "contact": "9879456783",
+            "location": "Dabholi Road, Surat, Katargam Taluka",
+            "lat": 21.232112,
+            "lng": 72.813789,
+            "image": "/static/uploads/iphone.jpg",
+            "date_reported": "2026-04-07T20:50:01.985887"
+        },
+        {
+            "user_id": 1,
+            "name": "gold ring",
+            "category": "Accessories",
+            "description": "it was gold ring",
+            "contact": "3567856789",
+            "location": "Anand Rural Taluka, Anand, Gujarat, 388121, India",
+            "lat": 22.521099,
+            "lng": 72.918396,
+            "image": null,
+            "date_reported": "2026-04-20T17:28:05.848815"
+        }
+    ],
+    "found_items": [
+        {
+            "name": "iphone",
+            "category": "Electronics",
+            "description": "iphone 16 black color",
+            "contact": "5674567899",
+            "location": "Surat",
+            "lat": 21.219369,
+            "lng": 72.822021,
+            "image": "/static/uploads/iphone.jpg",
+            "date_reported": "2026-04-07T20:50:49.048975"
+        }
+    ],
+    "notifications": [
+        {
+            "id": "f8fbbaf3-7f3a-440b-a0e2-1f962fa514cb",
+            "message": "\ud83d\udd0d Match found for your found Iphone! Check the Lost Items.",
+            "is_read": true,
+            "timestamp": "2026-04-07T20:50:49.049026",
+            "link": "/lost?search=iphone&category=Electronics&sort=latest"
+        }
+    ]
+}

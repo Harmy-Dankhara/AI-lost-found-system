@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lost & Found</title>
+    <!-- Google Fonts: Inter and Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <script>
+        // Apply theme immediately to prevent flash
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.body.setAttribute('data-theme', 'dark');
+        } else if (savedTheme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+            document.body.setAttribute('data-theme', 'light');
+        } else {
+            // Default to dark mode
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.body.setAttribute('data-theme', 'dark');
+        }
+    </script>
+    <!-- Professional Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">Lost & Found</div>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('home') }}">Home</a></li>
+                <li><a href="{{ url_for('view_lost') }}">View Lost Items</a></li>
+                <li><a href="{{ url_for('view_found') }}">View Found Items</a></li>
+                <li><a href="{{ url_for('match_results') }}">Match Items</a></li>
+                <li><a href="{{ url_for('search_image') }}">🔍 Visual Search</a></li>
+                <li><a href="{{ url_for('map_view') }}">🗺️ Map</a></li>
+                
+                <!-- Authentication Links -->
+                {% if session.get('user_id') %}
+                    <li><a href="{{ url_for('report_lost') }}">Report Lost</a></li>
+                    <li><a href="{{ url_for('report_found') }}">Report Found</a></li>
+                    <li><a href="{{ url_for('my_items') }}">My Items</a></li>
+                    <li><a href="{{ url_for('logout') }}" style="color: #ef4444;">Logout</a></li>
+                {% else %}
+                    <li><a href="{{ url_for('login') }}">Login</a></li>
+                    <li><a href="{{ url_for('register') }}" style="color: #10b981;">Register</a></li>
+                {% endif %}
+                {% if session.get('is_admin') %}
+                    <li><a href="{{ url_for('admin_dashboard') }}" style="color: #8b5cf6; font-weight: bold;">Admin</a></li>
+                {% endif %}
+                <li>
+                    <a href="javascript:void(0)" onclick="toggleTheme()" id="theme-toggle" class="theme-toggle-btn" title="Toggle Theme" style="font-size: 1.2rem;">
+                        <span id="theme-icon">🌙</span>
+                    </a>
+                </li>
+                <li class="nav-notification-drawer">
+                    <a href="javascript:void(0)" onclick="toggleNotifications()" class="bell-icon">
+                        🔔 <span id="nav-badge" class="nav-badge" style="display:none;">0</span>
+                    </a>
+                    <div id="notif-dropdown" class="notif-dropdown">
+                        <div class="notif-header">Notifications</div>
+                        <div id="notif-list" class="notif-list">
+                            <div class="notif-empty">No new notifications</div>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        window.addEventListener('scroll', function() {
+            const navbar = document.querySelector('.navbar');
+            if (window.scrollY > 20) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+
+        // ══════════════════════════════════════════════════════════
+        // THEME TOGGLE
+        // ══════════════════════════════════════════════════════════
+        function updateThemeIcon() {
+            const theme = document.body.getAttribute('data-theme');
+            const icon = document.getElementById('theme-icon');
+            if (icon) {
+                icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+            }
+        }
+        
+        function toggleTheme() {
+            let currentTheme = document.body.getAttribute('data-theme') || 'dark';
+            let newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            document.body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon();
+        }
+
+        // Initialize icon on load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateThemeIcon();
+        });
+
+        // ══════════════════════════════════════════════════════════
+        // NOTIFICATIONS POLLING
+        // ══════════════════════════════════════════════════════════
+        function toggleNotifications() {
+            document.getElementById('notif-dropdown').classList.toggle('active');
+        }
+
+        async function fetchNotifications() {
+            try {
+                const res = await fetch('/api/notifications');
+                const data = await res.json();
+                
+                const badge = document.getElementById('nav-badge');
+                const list = document.getElementById('notif-list');
+                
+                if (data.length > 0) {
+                    badge.textContent = data.length;
+                    badge.style.display = 'flex';
+                    
+                    let html = '';
+                    data.forEach(n => {
+                        html += `
+                        <div class="notif-item" onclick="readNotification('${n.id}', '${n.link}')">
+                            <div class="notif-icon">🔍</div>
+                            <div class="notif-content">
+                                <p>${n.message}</p>
+                                <span class="notif-time">${new Date(n.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            </div>
+                        </div>
+                        `;
+                    });
+                    list.innerHTML = html;
+                } else {
+                    badge.style.display = 'none';
+                    list.innerHTML = '<div class="notif-empty">No new notifications</div>';
+                }
+            } catch (err) {
+                console.error("Failed to fetch notifications", err);
+            }
+        }
+
+        async function readNotification(id, link) {
+            await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+            toggleNotifications();
+            fetchNotifications(); // update badge
+            window.location.href = link;
+        }
+
+        // Poll every 5 seconds
+        setInterval(fetchNotifications, 5000);
+        // Initial fetch
+        fetchNotifications();
+    </script>
+</body>
+</html>

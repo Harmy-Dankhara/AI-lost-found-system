@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="map-page-wrap">
+
+    <!-- Header Bar -->
+    <div class="map-header">
+        <div class="map-header-left">
+            <h2 class="map-title">📍 Live Item Map</h2>
+            <p class="map-subtitle">
+                {{ geo_count }} of {{ total }} items have location data
+            </p>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="map-controls">
+            <!-- Type Filter -->
+            <div class="map-filter-group">
+                <button class="map-filter-btn active" data-type="all"   onclick="setTypeFilter('all', this)">All</button>
+                <button class="map-filter-btn" data-type="lost"  onclick="setTypeFilter('lost', this)">🔴 Lost</button>
+                <button class="map-filter-btn" data-type="found" onclick="setTypeFilter('found', this)">🟢 Found</button>
+            </div>
+
+            <!-- Radius Filter -->
+            <div class="map-filter-group">
+                <label class="radius-label">📡 Radius:</label>
+                <select id="radiusSelect" class="radius-select" onchange="applyRadiusFilter()">
+                    <option value="0">All distances</option>
+                    <option value="2">Within 2 km</option>
+                    <option value="5">Within 5 km</option>
+                    <option value="10">Within 10 km</option>
+                    <option value="25">Within 25 km</option>
+                </select>
+                <button class="geo-btn map-locate-btn" onclick="locateMe()" title="Use my current location for radius filter" id="locateBtn">📍 My Location</button>
+            </div>
+
+            <!-- View Toggle -->
+            <div class="map-filter-group">
+                <a href="{{ url_for('view_lost') }}" class="map-filter-btn map-toggle-btn" title="Switch to list view">☰ List View</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="map-stats-bar" id="statsBar">
+        <span id="statLost"   class="stat-pill stat-lost">🔴 Lost: 0</span>
+        <span id="statFound"  class="stat-pill stat-found">🟢 Found: 0</span>
+        <span id="statTotal"  class="stat-pill stat-all">📌 Showing: 0</span>
+        <span id="statRadius" class="stat-pill stat-radius" style="display:none;">📡 Radius active</span>
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <!-- Legend -->
+    <div class="map-legend" id="mapLegend">
+        <div class="legend-item">
+            <div class="legend-pin legend-pin-red"></div>
+            <span>Lost Item</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-pin legend-pin-green"></div>
+            <span>Found Item</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-pin legend-pin-user"></div>
+            <span>Your Location</span>
+        </div>
+    </div>
+
+    <!-- No geo items warning -->
+    {% if geo_count == 0 %}
+    <div class="map-no-data">
+        <span class="map-no-data-icon">🗺️</span>
+        <h3>No Location Data Yet</h3>
+        <p>When users report items and allow location access (or enter coordinates), they'll appear here as map pins.</p>
+        <a href="{{ url_for('report_lost') }}" class="map-no-data-btn">Report an Item</a>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Leaflet CSS + JS (CDN) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet MarkerCluster -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+// ── Data injected from Flask ───────────────────────────────
+const ITEMS = {{ items_json | safe }};
+
+// ── Map init ──────────────────────────────────────────────
+const map = L.map('map', {
+    zoomControl: false,
+    attributionControl: true
+}).setView([20, 0], 2);
+
+// Custom zoom position
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+// Tile layer (clean, light style)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+}).addTo(map);
+
+// ── Custom icons ──────────────────────────────────────────
+function makeIcon(color, pulse) {
+    const pulseClass = pulse ? 'map-pin-pulse' : '';
+    return L.divIcon({
+        className: '',
+        html: `<div class="map-pin map-pin-${color} ${pulseClass}">
+                   <div class="map-pin-inner"></div>
+               </div>`,
+        iconSize:    [30, 40],
+        iconAnchor:  [15, 40],
+        popupAnchor: [0, -42]
+    });
+}
+const lostIcon  = makeIcon('red',   false);
+const foundIcon = makeIcon('green', false);
+
+// ── Marker Clustering ─────────────────────────────────────
+const clusterGroup = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    maxClusterRadius:    60,
+    iconCreateFunction: function(cluster) {
+        const count = cluster.getChildCount();
+        return L.divIcon({
+            html: `<div class="map-cluster">${count}</div>`,
+            className: '',
+            iconSize: L.point(42, 42)
+        });
+    }
+});
+map.addLayer(clusterGroup);
+
+// ── State ─────────────────────────────────────────────────
+let markerEntries = [];     // { marker, item, lat, lng }
+let activeType = 'all';
+let userLat = null, userLng = null;
+let userMarker = null;
+let activeRadius = 0;       // km; 0 = no radius filter
+let radiusCircle = null;
+
+// ── Haversine distance (km) ──────────────────────────────
+function haversine(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) *
+              Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ── Popup HTML ────────────────────────────────────────────
+function popupHTML(item, distKm) {
+    const img = item.image
+        ? `<img src="${item.image}" style="width:100%;height:100px;object-fit:cover;border-radius:10px;margin-bottom:10px;">`
+        : `<div style="font-size:32px;text-align:center;padding:10px 0;margin-bottom:6px;">📦</div>`;
+
+    const typeBadge = item._type === 'lost'
+        ? `<span class="popup-badge popup-badge-lost">🔴 LOST</span>`
+        : `<span class="popup-badge popup-badge-found">🟢 FOUND</span>`;
+
+    const distBadge = (distKm !== null && distKm !== undefined)
+        ? `<span class="popup-dist-badge">📡 ${distKm < 1 ? (distKm*1000).toFixed(0)+'m' : distKm.toFixed(1)+'km away'}</span>`
+        : '';
+
+    // Action URL — points to match results (smartest redirect available)
+    const matchUrl = '/match';
+    const listUrl  = item._type === 'lost' ? '/lost' : '/found';
+
+    return `
+        <div class="map-popup-card">
+            ${img}
+            <div class="popup-header">
+                ${typeBadge}
+                ${distBadge}
+            </div>
+            <h4 class="popup-name">${capitalise(item.name)}</h4>
+            <p class="popup-loc">📍 ${item.location || 'Unknown location'}</p>
+            <p class="popup-cat">📂 ${item.category}</p>
+            ${item.description
+                ? `<p class="popup-desc">${item.description.slice(0, 90)}${item.description.length > 90 ? '…' : ''}</p>`
+                : ''}
+            <p class="popup-contact">📞 <strong>${item.contact}</strong></p>
+            <div class="popup-actions">
+                <a href="${listUrl}" class="popup-btn popup-btn-list">☰ View List</a>
+                <a href="${matchUrl}" class="popup-btn popup-btn-match">🔗 Find Matches</a>
+            </div>
+        </div>`;
+}
+
+function capitalise(s) {
+    return s ? s.replace(/\b\w/g, c => c.toUpperCase()) : '';
+}
+
+// ── Place all markers ─────────────────────────────────────
+ITEMS.forEach(item => {
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lng);
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    const icon   = item._type === 'lost' ? lostIcon : foundIcon;
+    const marker = L.marker([lat, lng], { icon });
+    marker.bindPopup(() => popupHTML(item, userLat !== null ? haversine(userLat, userLng, lat, lng) : null), {
+        maxWidth:    240,
+        minWidth:    220,
+        className:  'map-leaflet-popup',
+        autoPanPadding: [30, 30]
+    });
+
+    // Bounce animation on hover
+    marker.on('mouseover', function() {
+        this.getElement()?.classList.add('marker-hover');
+    });
+    marker.on('mouseout', function() {
+        this.getElement()?.classList.remove('marker-hover');
+    });
+
+    clusterGroup.addLayer(marker);
+    markerEntries.push({ marker, item, lat, lng });
+});
+
+// Fit map to all markers
+if (markerEntries.length > 0) {
+    const latlngs = markerEntries.map(m => [m.lat, m.lng]);
+    map.fitBounds(latlngs, { padding: [40, 40] });
+} else {
+    map.setView([20, 0], 2);
+}
+
+// ── Filter logic ──────────────────────────────────────────
+function applyFilters() {
+    clusterGroup.clearLayers();
+    let lostCount = 0, foundCount = 0, shown = 0;
+
+    markerEntries.forEach(({ marker, item, lat, lng }) => {
+        let visible = true;
+        if (activeType !== 'all' && item._type !== activeType) visible = false;
+        if (activeRadius > 0 && userLat !== null) {
+            const dist = haversine(userLat, userLng, lat, lng);
+            if (dist > activeRadius) visible = false;
+        }
+        if (visible) {
+            clusterGroup.addLayer(marker);
+            shown++;
+            if (item._type === 'lost') lostCount++;
+            else foundCount++;
+        }
+    });
+
+    document.getElementById('statLost').textContent  = `🔴 Lost: ${lostCount}`;
+    document.getElementById('statFound').textContent = `🟢 Found: ${foundCount}`;
+    document.getElementById('statTotal').textContent = `📌 Showing: ${shown}`;
+}
+
+function setTypeFilter(type, btn) {
+    activeType = type;
+    document.querySelectorAll('.map-filter-btn[data-type]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilters();
+}
+
+function applyRadiusFilter() {
+    activeRadius = parseInt(document.getElementById('radiusSelect').value) || 0;
+    const pill = document.getElementById('statRadius');
+    pill.style.display = activeRadius > 0 ? 'inline-flex' : 'none';
+    if (activeRadius > 0) pill.textContent = `📡 Within ${activeRadius} km`;
+
+    // Draw / remove radius circle
+    if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
+    if (activeRadius > 0 && userLat !== null) {
+        radiusCircle = L.circle([userLat, userLng], {
+            radius: activeRadius * 1000,
+            color: '#f97316', fillColor: '#f97316', fillOpacity: 0.07, weight: 2
+        }).addTo(map);
+    }
+
+    applyFilters();
+
+    // Re-bind popups so distance updates
+    markerEntries.forEach(({ marker, item, lat, lng }) => {
+        marker.setPopupContent(popupHTML(item, userLat !== null ? haversine(userLat, userLng, lat, lng) : null));
+    });
+}
+
+function locateMe() {
+    if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+    const btn = document.getElementById('locateBtn');
+    btn.textContent = '⏳ Locating…';
+    btn.disabled = true;
+
+    navigator.geolocation.getCurrentPosition(pos => {
+        userLat = pos.coords.latitude;
+        userLng = pos.coords.longitude;
+
+        if (userMarker) map.removeLayer(userMarker);
+        userMarker = L.circleMarker([userLat, userLng], {
+            radius: 10, color: '#f97316', fillColor: '#f97316',
+            fillOpacity: 0.9, weight: 3
+        }).bindPopup('<b>📍 You are here</b>').addTo(map).openPopup();
+
+        map.setView([userLat, userLng], 13);
+        btn.textContent = '📍 My Location';
+        btn.disabled = false;
+        applyRadiusFilter();
+    }, () => {
+        alert('Location access denied. Please enable location permissions.');
+        btn.textContent = '📍 My Location';
+        btn.disabled = false;
+    }, { timeout: 10000 });
+}
+
+// Initial render
+applyFilters();
+</script>
+{% endblock %}

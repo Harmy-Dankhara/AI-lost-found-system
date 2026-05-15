@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="items-page-container" style="max-width:780px;">
+
+    <div class="items-page-header">
+        <div class="items-page-title-row">
+            <span class="items-page-badge" style="background:#ede9fe;color:#7c3aed;">🔍 Visual Search</span>
+            <h2 class="lost-items-title">Search by Image</h2>
+        </div>
+        <p class="items-page-subtitle">Upload a photo of the item you're looking for — our AI will find visually similar items.</p>
+    </div>
+
+    {% if not image_match_available %}
+    <div class="img-search-unavailable">
+        ⚠️ Image matching library not installed. Run <code>pip install Pillow imagehash</code> to enable this feature.
+    </div>
+    {% endif %}
+
+    <!-- Upload Form -->
+    <form method="POST" enctype="multipart/form-data" class="img-search-form">
+        <div class="img-drop-zone" id="dropZone">
+            {% if query_img_url %}
+                <img src="{{ query_img_url }}" class="img-preview" id="preview" alt="Query image">
+            {% else %}
+                <div class="img-drop-inner" id="dropInner">
+                    <span class="img-drop-icon">📷</span>
+                    <p class="img-drop-label">Drop an image here or <label for="query_image" class="img-browse-link">browse</label></p>
+                    <p class="img-drop-hint">JPG, PNG, WEBP — max 10 MB</p>
+                </div>
+                <img src="" class="img-preview" id="preview" alt="" style="display:none;">
+            {% endif %}
+            <input type="file" id="query_image" name="query_image" accept="image/*"
+                   style="display:none;" onchange="previewImage(this)">
+        </div>
+
+        <button type="submit" class="btn-submit img-search-btn"
+                {% if not image_match_available %}disabled{% endif %}>
+            🔍 Find Visually Similar Items
+        </button>
+    </form>
+
+    <!-- Results -->
+    {% if results %}
+    <h3 class="img-results-title">{{ results | length }} Similar Item{{ 's' if results | length != 1 else '' }} Found</h3>
+    <div class="items-grid">
+        {% for r in results %}
+        <div class="item-card img-result-card">
+            {% if r.item.image %}
+            <div class="item-card-img-wrap">
+                <img src="{{ r.item.image }}" alt="{{ r.item.name }}" class="item-card-img">
+            </div>
+            {% else %}
+            <div class="item-card-img-placeholder">📦</div>
+            {% endif %}
+
+            <div class="item-card-body">
+                <div class="item-card-top">
+                    <span class="item-category-badge">{{ r.item.category }}</span>
+                    <span class="img-score-pill">📷 {{ r.score }}%</span>
+                </div>
+                <h3 class="item-card-name">{{ r.item.name | title }}</h3>
+                <p class="item-card-desc">{{ r.item.description }}</p>
+            </div>
+
+            <div class="item-card-footer">
+                <div class="item-card-meta">
+                    <span class="item-meta-row">📍 {{ r.item.location }}</span>
+                    <span class="item-meta-row">📞 {{ r.item.contact }}</span>
+                </div>
+                <div class="img-match-label {{ r.label[1] }}">{{ r.label[0] }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% elif query_img_url %}
+    <div class="match-empty">
+        <div class="match-empty-icon">🔍</div>
+        <h3>No Visually Similar Items Found</h3>
+        <p>Try uploading a clearer image, or use the text search to find your item by name or description.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const preview = document.getElementById('preview');
+                const inner   = document.getElementById('dropInner');
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                if (inner) inner.style.display = 'none';
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // Click anywhere on drop zone to trigger file input
+    document.getElementById('dropZone').addEventListener('click', () => {
+        document.getElementById('query_image').click();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="items-page-container">
+    <div class="items-page-header">
+        <h2 class="page-title">My Dashboard</h2>
+        <p class="items-page-subtitle">Manage your reported lost and found items, and view matches relevant to you.</p>
+    </div>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div style="background: #dcfce7; color: #16a34a; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; display: inline-block;">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- My Lost Items -->
+    <h3 style="margin-top: 10px; margin-bottom: 15px; color: #111;">My Reported Lost Items</h3>
+    {% if my_lost %}
+    <div class="items-grid">
+        {% for item in my_lost %}
+        <div class="item-card" onclick="window.location.href='/lost?search={{ item.name }}'" style="cursor: pointer;">
+            <div class="item-card-img-wrap">
+                {% if item.image %}
+                    <img src="{{ item.image }}" alt="{{ item.name }}" class="item-card-img">
+                {% else %}
+                    <div class="item-card-img-placeholder">🔍</div>
+                {% endif %}
+            </div>
+            <div class="item-card-body">
+                <div class="item-card-top">
+                    <span class="item-category-badge lost-badge">{{ item.category }}</span>
+                </div>
+                <h3 class="item-card-name">{{ item.name.title() }}</h3>
+                <p class="item-card-desc">{{ item.description }}</p>
+            </div>
+            <div class="item-card-footer">
+                <div class="item-card-meta">
+                    <div class="item-meta-row">📍 {{ item.location }}</div>
+                    <div class="item-meta-row">📅 {{ item.date_reported[:10] }}</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="items-empty" style="padding: 20px; background: white; border-radius: 12px; border: 1px dashed #d1d5db;">
+        <p style="margin: 0; color: #6b7280;">You haven't reported any lost items.</p>
+    </div>
+    {% endif %}
+
+    <!-- My Found Items -->
+    <h3 style="margin-top: 40px; margin-bottom: 15px; color: #111;">My Reported Found Items</h3>
+    {% if my_found %}
+    <div class="items-grid">
+        {% for item in my_found %}
+        <div class="item-card" onclick="window.location.href='/found?search={{ item.name }}'" style="cursor: pointer;">
+            <div class="item-card-img-wrap">
+                {% if item.image %}
+                    <img src="{{ item.image }}" alt="{{ item.name }}" class="item-card-img">
+                {% else %}
+                    <div class="item-card-img-placeholder">✨</div>
+                {% endif %}
+            </div>
+            <div class="item-card-body">
+                <div class="item-card-top">
+                    <span class="item-category-badge found-badge">{{ item.category }}</span>
+                </div>
+                <h3 class="item-card-name">{{ item.name.title() }}</h3>
+                <p class="item-card-desc">{{ item.description }}</p>
+            </div>
+            <div class="item-card-footer">
+                <div class="item-card-meta">
+                    <div class="item-meta-row">📍 {{ item.location }}</div>
+                    <div class="item-meta-row">📅 {{ item.date_reported[:10] }}</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="items-empty" style="padding: 20px; background: white; border-radius: 12px; border: 1px dashed #d1d5db;">
+        <p style="margin: 0; color: #6b7280;">You haven't reported any found items.</p>
+    </div>
+    {% endif %}
+    
+    <!-- My Match Results -->
+    <h3 style="margin-top: 40px; margin-bottom: 15px; color: #111;">Potential Matches for You</h3>
+    {% if my_matches %}
+        <!-- We use a simple list format for matches -->
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+        {% for match in my_matches %}
+            <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03);">
+                <div>
+                    <h4 style="margin: 0 0 5px; color: #111;">{{ match.lost_item.name.title() }} <span style="font-size: 13px; color: #6b7280; font-weight: normal;">(Lost)</span> <span style="margin: 0 10px; color: #d1d5db;">⇄</span> {{ match.found_item.name.title() }} <span style="font-size: 13px; color: #6b7280; font-weight: normal;">(Found)</span></h4>
+                    <span style="font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 100px; background: #e0e7ff; color: #4338ca;">{{ match.label[0] }}</span>
+                    <span style="font-size: 12px; color: #4b5563; margin-left: 10px;">Score: {{ match.score }}%</span>
+                </div>
+                <a href="{{ url_for('match_results') }}" class="btn" style="padding: 8px 16px; min-width: auto; font-size: 13px; background: #f9f9f9; border: 1px solid #ddd; color: #333; animation: none;">View Match</a>
+            </div>
+        {% endfor %}
+        </div>
+    {% else %}
+    <div class="items-empty" style="padding: 20px; background: white; border-radius: 12px; border: 1px dashed #d1d5db;">
+        <p style="margin: 0; color: #6b7280;">No matches found yet for your items.</p>
+    </div>
+    {% endif %}
+    
+</div>
+{% endblock %}

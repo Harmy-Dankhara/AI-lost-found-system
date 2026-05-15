@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="match-results">
+    <h2 class="lost-items-title">AI Match Results</h2>
+    <p class="match-subtitle">Intelligent fuzzy matching across name, description, category &amp; location.</p>
+
+    <!-- Search Bar -->
+    <div class="search-bar-container">
+        <input type="text" id="searchInput" class="search-bar"
+               placeholder="Search matched items..." onkeyup="filterMatches()">
+    </div>
+
+    {% if matches %}
+        <div id="matchList">
+            {% for match in matches %}
+            <div class="match-card-full">
+
+                <!-- Lost Item Side -->
+                <div class="match-side match-side-lost">
+                    <div class="match-side-label lost-label">🔴 Lost Item</div>
+                    {% if match.lost_item.image %}
+                        <img src="{{ match.lost_item.image }}" alt="Lost Item" class="match-img">
+                    {% else %}
+                        <div class="match-img-placeholder">📦</div>
+                    {% endif %}
+                    <h3 class="match-item-name">{{ match.lost_item.name | title }}</h3>
+                    <div class="match-meta">
+                        <span class="match-badge">{{ match.lost_item.category }}</span>
+                    </div>
+                    <div class="match-info-row"><span class="info-label">📍</span> {{ match.lost_item.location }}</div>
+                    <div class="match-info-row"><span class="info-label">📝</span> {{ match.lost_item.description }}</div>
+                    <div class="match-info-row"><span class="info-label">📞</span> {{ match.lost_item.contact }}</div>
+                </div>
+
+                <!-- Connector Column with Score -->
+                <div class="match-connector">
+                    <div class="match-icon-center">🔗</div>
+
+                    <!-- Score Ring -->
+                    <div class="match-score-ring">
+                        <svg viewBox="0 0 56 56" class="score-svg">
+                            <circle cx="28" cy="28" r="23" class="score-track"/>
+                            <circle cx="28" cy="28" r="23" class="score-fill"
+                                style="stroke-dashoffset: {{ (144.5 * (1 - match.score / 100)) | round(1) }}"/>
+                        </svg>
+                        <span class="score-number">{{ match.score }}%</span>
+                    </div>
+
+                    <!-- Confidence Label -->
+                    <div class="match-confidence-badge {{ match.label[1] }}">
+                        {{ match.label[0] }}
+                    </div>
+
+                    <!-- Image score (only if both items had images) -->
+                    {% if match.img_score is not none %}
+                    <div class="img-match-badge">
+                        📷 {{ match.img_score }}% visual
+                    </div>
+                    {% endif %}
+
+                    <!-- Distance badge (when coords available) -->
+                    {% if match.dist_km is not none %}
+                    <div class="dist-match-badge">
+                        {% if match.dist_km < 1 %}
+                            📡 {{ (match.dist_km * 1000) | int }}m apart
+                        {% else %}
+                            📡 {{ match.dist_km }}km apart
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                </div>
+
+                <!-- Found Item Side -->
+                <div class="match-side match-side-found">
+                    <div class="match-side-label found-label">🟢 Found Item</div>
+                    {% if match.found_item.image %}
+                        <img src="{{ match.found_item.image }}" alt="Found Item" class="match-img">
+                    {% else %}
+                        <div class="match-img-placeholder">📦</div>
+                    {% endif %}
+                    <h3 class="match-item-name">{{ match.found_item.name | title }}</h3>
+                    <div class="match-meta">
+                        <span class="match-badge">{{ match.found_item.category }}</span>
+                    </div>
+                    <div class="match-info-row"><span class="info-label">📍</span> {{ match.found_item.location }}</div>
+                    <div class="match-info-row"><span class="info-label">📝</span> {{ match.found_item.description }}</div>
+                    <div class="match-info-row"><span class="info-label">📞</span> {{ match.found_item.contact }}</div>
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+
+    {% else %}
+        <div class="match-empty">
+            <div class="match-empty-icon">🔍</div>
+            <h3>No Matching Items Found</h3>
+            <p>No matches detected yet. Try reporting more items — the AI will compare name, description, category, and location automatically.</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+    function filterMatches() {
+        const input = document.getElementById("searchInput").value.toLowerCase();
+        const cards = document.getElementById("matchList")
+                             .getElementsByClassName("match-card-full");
+        for (let i = 0; i < cards.length; i++) {
+            cards[i].style.display =
+                cards[i].innerText.toLowerCase().includes(input) ? "flex" : "none";
+        }
+    }
+</script>
+{% endblock %}

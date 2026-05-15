@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container form-page">
+    <div class="compact-form">
+        <h2 class="page-title">Create an Account</h2>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}" style="color: {{ '#ef4444' if category == 'danger' else '#10b981' }}; margin-bottom: 15px; font-size: 14px; text-align: center;">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('register') }}" method="POST">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" name="name" required placeholder="John Doe">
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" required placeholder="name@example.com">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required placeholder="••••••••">
+            </div>
+            
+            <button type="submit" class="btn-submit">Sign Up</button>
+        </form>
+        <p style="text-align: center; margin-top: 15px; font-size: 14px; color: #555;">
+            Already have an account? <a href="{{ url_for('login') }}" style="color: #f97316; text-decoration: none; font-weight: 600;">Log in</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
